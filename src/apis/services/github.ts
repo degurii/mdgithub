@@ -10,6 +10,12 @@ export const getWithUrl = (url: string, params: any) => {
 export const getRepository = (owner: string, repo: string) =>
   githubClient.get(`/repos/${owner}/${repo}`);
 
+export const getDefaultBranchName = (
+  owner: string,
+  repo: string,
+): Promise<string> =>
+  getRepository(owner, repo).then(({ data }) => data.default_branch);
+
 export const getTrees = (
   owner: string,
   repo: string,
@@ -25,6 +31,7 @@ export const getBlobs = (owner: string, repo: string, sha: string) =>
   githubClient.get(`/repos/${owner}/${repo}/git/blobs/${sha}`);
 
 export const getRateLimit = () => githubClient.get('/rate_limit');
+
 export const postMarkdown = (markdown: string, mode: string = 'gfm') =>
   githubClient.post('/markdown', {
     text: markdown,
