@@ -14,7 +14,7 @@ function NotFound() {
                 Page not found.
               </h1>
               <p className="mt-2 text-xl text-gray-500">
-                주소가 잘못됐나봐요!!
+                주소가 잘못됐나 봐요!!
               </p>
               <LinkButton to="/" className="mt-8 text-xl">
                 홈으로
