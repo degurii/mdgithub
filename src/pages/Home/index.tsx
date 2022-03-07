@@ -1,6 +1,5 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { removeHostFromGithubUrl } from '../../utils/url';
 
 import InputBox from '../../components/InputBox';
 
@@ -8,6 +7,17 @@ type Props = {
   inputUrl: string;
   handleChangeInputUrl: (e: React.ChangeEvent<HTMLInputElement>) => void;
 };
+
+const removeHostFromGithubUrl = (url: string) => {
+  const urlWithoutProtocol = url.replace(/^https:\/\//, '');
+  const [host, ...rest] = urlWithoutProtocol.split('/');
+
+  if (host !== 'github.com') {
+    return null;
+  }
+  return '/' + rest.join('/');
+};
+
 function Home({ inputUrl, handleChangeInputUrl }: Props) {
   const navigate = useNavigate();
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
