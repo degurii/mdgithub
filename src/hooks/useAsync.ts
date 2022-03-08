@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useReducer } from 'react';
 import type { DependencyList } from 'react';
 
 const enum ActionType {
@@ -39,16 +39,13 @@ const createReducer =
     }
   };
 
-export const useAsync = <T extends (...args: any[]) => Promise<any>>(
-  fn: T,
+export const useAsync = <T = any>(
+  fn: () => Promise<T>,
   deps: DependencyList = [],
-): [State<Awaited<ReturnType<T>>>, () => void] => {
-  const [state, dispatch] = useReducer(
-    createReducer<Awaited<ReturnType<T>>>(),
-    {
-      loading: false,
-    },
-  );
+): [State<T>, () => void] => {
+  const [state, dispatch] = useReducer(createReducer<T>(), {
+    loading: false,
+  });
 
   const fetchData = useCallback(() => {
     dispatch({ type: ActionType.LOADING });
