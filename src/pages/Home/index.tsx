@@ -33,9 +33,11 @@ function Home({ inputUrl, handleChangeInputUrl }: Props) {
   };
 
   useEffect(() => {
-    getRateLimit().then(({ data }) => {
-      console.log('rate limit:', data);
-    });
+    getRateLimit()
+      .then(({ data }) => {
+        console.log('rate limit:', data);
+      })
+      .catch((err) => console.error('error:', err));
   });
   return (
     <div className="relative pt-36 pb-16 sm:pb-24">
