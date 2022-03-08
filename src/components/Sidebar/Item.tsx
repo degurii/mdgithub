@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { GitBlob, GitTree, RepoParams } from '../../pages/TIL';
-import classNames from 'classnames';
+import { classNames } from '../../utils/tailwind';
 
 type Props = {
   level: number;
