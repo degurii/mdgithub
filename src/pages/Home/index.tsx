@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getRateLimit } from '../../apis/services/github';
 
 import InputBox from '../../components/InputBox';
 
@@ -30,6 +31,12 @@ function Home({ inputUrl, handleChangeInputUrl }: Props) {
       }
     }
   };
+
+  useEffect(() => {
+    getRateLimit().then(({ data }) => {
+      console.log('rate limit:', data);
+    });
+  });
   return (
     <div className="relative pt-36 pb-16 sm:pb-24">
       <main className="mt-16 mx-auto px-4 ">

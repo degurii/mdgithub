@@ -19,11 +19,7 @@ function Sidebar({
   rootTree,
 }: Props) {
   const isLoading = loading || !rootTree || !repoParams;
-  console.log('isLoading:', {
-    loading,
-    rootTree,
-    repoParams,
-  });
+
   return (
     <>
       {/* Sidebar for Mobile */}
