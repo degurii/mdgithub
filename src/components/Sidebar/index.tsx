@@ -1,24 +1,29 @@
 import { Fragment, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XIcon } from '@heroicons/react/outline';
-import { GitTree } from '../../pages/TIL';
+import { GitTree, RepoParams } from '../../pages/TIL';
 import Item from './Item';
 
-const navigation = [
-  { name: 'Dashboard', href: '#', current: true },
-  { name: 'Team', href: '#', current: false },
-  { name: 'Projects', href: '#', current: false },
-  { name: 'Calendar', href: '#', current: false },
-  { name: 'Documents', href: '#', current: false },
-  { name: 'Reports', href: '#', current: false },
-];
-
 type Props = {
-  isSidebarOpen: boolean;
   closeSidebar: () => void;
-  // contents: GitTree;
+  isSidebarOpen: boolean;
+  loading: boolean;
+  repoParams?: RepoParams;
+  rootTree?: GitTree;
 };
-function Sidebar({ isSidebarOpen, closeSidebar }: Props) {
+function Sidebar({
+  closeSidebar,
+  isSidebarOpen,
+  loading,
+  repoParams,
+  rootTree,
+}: Props) {
+  const isLoading = loading || !rootTree || !repoParams;
+  console.log('isLoading:', {
+    loading,
+    rootTree,
+    repoParams,
+  });
   return (
     <>
       {/* Sidebar for Mobile */}
@@ -72,9 +77,11 @@ function Sidebar({ isSidebarOpen, closeSidebar }: Props) {
 
               <div className="mt-5 flex-1 h-0 overflow-y-auto">
                 <nav className="px-2 space-y-1">
-                  {navigation.map((item) => (
-                    <Item key={item.name} item={item} />
-                  ))}
+                  {isLoading ? (
+                    <div>로딩중</div>
+                  ) : (
+                    <Item tree={rootTree} level={0} repoParams={repoParams} />
+                  )}
                 </nav>
               </div>
             </div>
@@ -88,9 +95,11 @@ function Sidebar({ isSidebarOpen, closeSidebar }: Props) {
         <div className="border-r border-gray-200 pt-5 flex flex-col flex-grow bg-white overflow-y-auto">
           <div className="flex-grow mt-5 flex flex-col">
             <nav className="flex-1 px-2 pb-4 space-y-1">
-              {navigation.map((item) => (
-                <Item key={item.name} item={item} />
-              ))}
+              {isLoading ? (
+                <div>로딩중</div>
+              ) : (
+                <Item tree={rootTree} level={0} repoParams={repoParams} />
+              )}
             </nav>
           </div>
         </div>

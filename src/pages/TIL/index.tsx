@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   getBlobs,
   getDefaultBranchName,
+  getRateLimit,
   getTrees,
   postMarkdown,
 } from '../../apis/services/github';
@@ -26,32 +27,32 @@ type RestParams = {
 };
 
 type GitBlobResponse = {
+  mode: string;
   path: string;
+  sha: string;
   size: number;
   type: 'blob';
   url: string;
-  mode: string;
-  sha: string;
 };
 type GitTreeResponse = {
-  mode: string;
-  path: string;
-  sha: string;
-  type: 'tree';
   url: string;
+  type: 'tree';
+  sha: string;
+  path: string;
+  mode: string;
 };
 
 export class GitTree {
   type: 'tree';
   path: string;
   name: string;
-  subTree: { [name: string]: GitTree };
+  subTrees: { [name: string]: GitTree };
   blobs: { [name: string]: GitBlob };
   constructor(path: string, name: string) {
     this.type = 'tree';
     this.path = path;
     this.name = name;
-    this.subTree = {};
+    this.subTrees = {};
     this.blobs = {};
   }
 }
@@ -73,7 +74,7 @@ export class GitBlob {
 
 export type GitNode = GitTree | GitBlob;
 
-const isGitNodeType = (type: string) => type === 'blob' || type === 'tree';
+const isGitNodeType = (type: string = '') => type === 'blob' || type === 'tree';
 
 const createContentsFromTreeResponse = (treeResponse: any): GitTree => {
   const contents = new GitTree('', 'root');
@@ -97,13 +98,13 @@ const createContentsFromTreeResponse = (treeResponse: any): GitTree => {
 
         return;
       }
-      if (!currentNode.subTree[pathPart]) {
-        currentNode.subTree[pathPart] = new GitTree(
+      if (!currentNode.subTrees[pathPart]) {
+        currentNode.subTrees[pathPart] = new GitTree(
           `${currentNode.path}/${pathPart}`,
           pathPart,
         );
       }
-      currentNode = currentNode.subTree[pathPart];
+      currentNode = currentNode.subTrees[pathPart];
     });
   });
 
@@ -113,90 +114,145 @@ const createContentsFromTreeResponse = (treeResponse: any): GitTree => {
 
 // TODO: 일단은 branch 이름에 슬래시('/')가 안들어가는 케이스만 구현.
 // 추후 수정해야 함
-const parseRestParameters = (params: string): RestParams => {
+const parseUrlParamsWithoutOwnerAndRepo = (params: string = '') => {
   const [type, branch, ...pathParts] = params.split('/');
-  return {
-    type,
-    branch,
-    pathParts,
-  };
+  return { type, branch, pathParts };
+};
+
+export type RepoParams = {
+  owner: string;
+  repo: string;
+  type: string;
+  branch: string;
+  defaultBranch: string;
 };
 
 function TIL() {
-  const params = useNonUndefinedParams<Params>();
-  const { owner, repo } = params;
-  const restParams = params['*'];
-
-  const [contentsState] = useAsync(() => {
-    const { type, branch } = parseRestParameters(restParams);
-
-    const br = type && isGitNodeType(type) ? branch : undefined;
-
-    return getBranchContents(br);
-  }, [owner, repo, restParams]);
-
-  const [currentNode, setCurrentNode] = useState<GitNode | null>(null);
+  const params = useParams();
+  const navigate = useNavigate();
+  const [repoParams, setRepoParams] = useState<RepoParams | undefined>();
+  const [currentPathParts, setCurrentPathParts] = useState<
+    string[] | undefined
+  >();
+  const [currentNode, setCurrentNode] = useState<GitNode | undefined>();
   const [isSidebarOpen, openSidebar, closeSidebar] = useBoolean(false);
-  const [article, setArticle] = useState('');
-
-  const getBranchContents = async (branch: string | undefined) => {
-    if (!branch) {
-      branch = await getDefaultBranchName(owner, repo);
-    }
-    const treeResponse = await getTrees(owner, repo, branch, { recursive: 1 });
-    return createContentsFromTreeResponse(treeResponse.data);
-  };
-
-  useEffect(() => {
-    if (!contentsState.data) {
-      return;
-    }
-    const { type, pathParts } = parseRestParameters(restParams);
-    if (!type || !isGitNodeType(type) || !pathParts) {
-      setCurrentNode(contentsState.data);
-    } else {
-      const node = pathParts?.reduce<GitNode>((parentNode, path, index) => {
-        const parentTree = parentNode as GitTree;
-        if (index === pathParts.length - 1 && type === 'blob') {
-          return parentTree.blobs[path];
-        } else {
-          return parentTree.subTree[path];
-        }
-      }, contentsState.data);
-
-      setCurrentNode(node);
-    }
-  }, [contentsState.data, restParams]);
-
-  useEffect(() => {
-    if (!currentNode) {
-      return;
-    }
-    (async () => {
+  const [contentsState] = useAsync(
+    async function fetchContentsAndCreateTree() {
+      if (!repoParams) {
+        return undefined;
+      }
+      const { owner, repo, branch } = repoParams;
+      const treeResponse = await getTrees(owner, repo, branch, {
+        recursive: 1,
+      });
+      return createContentsFromTreeResponse(treeResponse.data);
+    },
+    [repoParams],
+  );
+  const [articleState] = useAsync(
+    async function fetchArticle() {
+      if (!repoParams || !currentNode) {
+        return undefined;
+      }
       if (currentNode.type === 'blob') {
-        const blob = currentNode as GitBlob;
-        const data = await getBlobs(owner, repo, blob.sha)
+        const blob = currentNode;
+        return getBlobs(repoParams.owner, repoParams.repo, blob.sha)
           .then(({ data }) => decode(data.content))
           .then(postMarkdown)
-          .then(({ data }) => data);
-        setArticle(data);
+          .then(({ data: articleHtml }) => articleHtml);
       }
-    })();
-  }, [currentNode, owner, repo]);
+    },
+    [currentNode, repoParams],
+  );
 
-  if (contentsState.error) {
+  useEffect(
+    function parseParams() {
+      if (!params) {
+        return;
+      }
+      const { owner, repo } = params;
+      if (!owner || !repo) {
+        return;
+      }
+      const { type, branch, pathParts } = parseUrlParamsWithoutOwnerAndRepo(
+        params['*'] as string,
+      );
+      if (type && !isGitNodeType(type)) {
+        navigate(`/${owner}/${repo}`, { replace: true });
+      }
+      (async () => {
+        const defaultBranch = await getDefaultBranchName(owner, repo);
+        setRepoParams({
+          owner,
+          repo,
+          type: type ?? 'tree',
+          branch: branch ?? defaultBranch,
+          defaultBranch,
+        });
+        setCurrentPathParts(pathParts);
+      })();
+    },
+    [navigate, params],
+  );
+
+  useEffect(
+    function setCurrentNodeFromParams() {
+      if (
+        !repoParams ||
+        !currentPathParts ||
+        !contentsState.data ||
+        contentsState.loading
+      ) {
+        return;
+      }
+      console.log('repoParams:', repoParams);
+      const { type } = repoParams;
+      if (!type || !isGitNodeType(type) || !currentPathParts) {
+        setCurrentNode(contentsState.data);
+      } else {
+        try {
+          const node = currentPathParts?.reduce<GitNode>(
+            (parentNode, path, index) => {
+              const parentTree = parentNode as GitTree;
+              if (index === currentPathParts.length - 1 && type === 'blob') {
+                return parentTree.blobs[path];
+              } else {
+                return parentTree.subTrees[path];
+              }
+            },
+            contentsState.data,
+          );
+          if (!node) {
+            throw new Error('node is not found');
+          }
+          setCurrentNode(node);
+        } catch (e) {
+          navigate('/404-not-found', { replace: true });
+        }
+      }
+    },
+    [contentsState, currentPathParts, repoParams, navigate],
+  );
+
+  if (contentsState.error || articleState.error) {
     return <Navigate to={'/404-not-found'} replace={true} />;
   }
   return (
     <div className="flex flex-col h-screen">
-      <Header openSidebar={openSidebar} owner={owner} repo={repo} />
+      <Header openSidebar={openSidebar} repoParams={repoParams} />
       <div className="flex grow">
-        <Sidebar isSidebarOpen={isSidebarOpen} closeSidebar={closeSidebar} />
+        <Sidebar
+          closeSidebar={closeSidebar}
+          isSidebarOpen={isSidebarOpen}
+          loading={contentsState.loading}
+          repoParams={repoParams}
+          rootTree={contentsState.data}
+        />
         <MainContent>
           <Article
-            loading={contentsState.loading}
+            loading={contentsState.loading || articleState.loading}
             article={{
-              text: article,
+              text: articleState.data,
               type: 'html',
             }}
           />
