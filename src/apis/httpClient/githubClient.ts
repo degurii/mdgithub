@@ -11,6 +11,7 @@ class GithubClient extends HttpClient {
     super(config);
 
     this.instance.interceptors.response.use(undefined, (err) => {
+      console.error(err);
       return Promise.reject(err);
     });
   }
