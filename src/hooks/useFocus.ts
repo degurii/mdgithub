@@ -7,7 +7,7 @@ export const useFocus = () => {
     if (ref.current) {
       ref.current.focus();
     }
-  });
+  }, []);
 
   return ref;
 };
