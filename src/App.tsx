@@ -21,7 +21,6 @@ function App() {
             />
           }
         />
-        {/* <Route path="login" element={<Login />} /> */}
         <Route path=":owner/:repo/*" element={<TIL />} />
       </Route>
       <Route path="*" element={<NotFound />} />

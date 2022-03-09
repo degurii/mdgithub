@@ -1,30 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import {
-  getBlobs,
-  getDefaultBranchName,
-  getRateLimit,
-  getTrees,
-  postMarkdown,
-} from '../../apis/services/github';
-import { useAsync, useBoolean, useNonUndefinedParams } from '../../hooks';
-import { decode } from 'js-base64';
+import { getDefaultBranchName, getTrees } from '../../apis/services/github';
+import { useAsync, useBoolean } from '../../hooks';
 import Header from '../../components/Header';
 import Sidebar from '../../components/Sidebar';
 import MainContent from '../../components/MainContent';
-import Article from '../../components/Article';
-
-type Params = {
-  owner: string;
-  repo: string;
-  '*': string;
-};
-
-type RestParams = {
-  type?: string;
-  branch?: string;
-  pathParts?: string[];
-};
 
 type GitBlobResponse = {
   mode: string;
@@ -46,13 +26,13 @@ export class GitTree {
   type: 'tree';
   path: string;
   name: string;
-  subTrees: { [name: string]: GitTree };
+  subtrees: { [name: string]: GitTree };
   blobs: { [name: string]: GitBlob };
   constructor(path: string, name: string) {
     this.type = 'tree';
     this.path = path;
     this.name = name;
-    this.subTrees = {};
+    this.subtrees = {};
     this.blobs = {};
   }
 }
@@ -76,45 +56,12 @@ export type GitNode = GitTree | GitBlob;
 
 const isGitNodeType = (type: string = '') => type === 'blob' || type === 'tree';
 
-const createContentsFromTreeResponse = (treeResponse: any): GitTree => {
-  const contents = new GitTree('', 'root');
-
-  const blobs = treeResponse.tree.filter(
-    (node: GitTreeResponse | GitBlobResponse) =>
-      node.type === 'blob' && node.path.match(/\.md$/),
-  ) as GitBlobResponse[];
-
-  blobs.forEach((blob) => {
-    const pathParts = blob.path.split('/');
-    let currentNode = contents;
-    pathParts.forEach((pathPart, index) => {
-      if (index === pathParts.length - 1) {
-        currentNode.blobs[pathPart] = new GitBlob(
-          blob.path,
-          pathPart,
-          blob.size,
-          blob.sha,
-        );
-
-        return;
-      }
-      if (!currentNode.subTrees[pathPart]) {
-        currentNode.subTrees[pathPart] = new GitTree(
-          `${currentNode.path}/${pathPart}`,
-          pathPart,
-        );
-      }
-      currentNode = currentNode.subTrees[pathPart];
-    });
-  });
-
-  console.log('contents:', contents);
-  return contents;
-};
-
 // TODO: 일단은 branch 이름에 슬래시('/')가 안들어가는 케이스만 구현.
 // 추후 수정해야 함
-const parseUrlParamsWithoutOwnerAndRepo = (params: string = '') => {
+const parseUrlParamsWithoutOwnerAndRepo = (params: string) => {
+  if (params === '') {
+    return {};
+  }
   const [type, branch, ...pathParts] = params.split('/');
   return { type, branch, pathParts };
 };
@@ -123,6 +70,7 @@ export type RepoParams = {
   owner: string;
   repo: string;
   type: string;
+  pathParts: string[];
   branch: string;
   defaultBranch: string;
 };
@@ -131,38 +79,42 @@ function TIL() {
   const params = useParams();
   const navigate = useNavigate();
   const [repoParams, setRepoParams] = useState<RepoParams | undefined>();
-  const [currentPathParts, setCurrentPathParts] = useState<
-    string[] | undefined
-  >();
   const [currentNode, setCurrentNode] = useState<GitNode | undefined>();
   const [isSidebarOpen, openSidebar, closeSidebar] = useBoolean(false);
-  const [contentsState] = useAsync(
-    async function fetchContentsAndCreateTree() {
+  const [repoContentsState] = useAsync(
+    async function fetchContents() {
       if (!repoParams) {
         return undefined;
       }
       const { owner, repo, branch } = repoParams;
-      const treeResponse = await getTrees(owner, repo, branch, {
+      const res = await getTrees(owner, repo, branch, {
         recursive: 1,
       });
-      return createContentsFromTreeResponse(treeResponse.data);
+      return res.data;
     },
     [repoParams],
   );
-  const [articleState] = useAsync(
-    async function fetchArticle() {
-      if (!repoParams || !currentNode) {
-        return undefined;
+  const [contentsTree, setContentsTree] = useState<GitTree | undefined>();
+
+  const createTreeUrl = useCallback(
+    (path: string, isRoot?: boolean) => {
+      if (!repoParams) return '';
+      const { owner, repo, branch, defaultBranch } = repoParams;
+      if (isRoot && branch === defaultBranch) {
+        return `/${owner}/${repo}`;
       }
-      if (currentNode.type === 'blob') {
-        const blob = currentNode;
-        return getBlobs(repoParams.owner, repoParams.repo, blob.sha)
-          .then(({ data }) => decode(data.content))
-          .then(postMarkdown)
-          .then(({ data: articleHtml }) => articleHtml);
-      }
+      return `/${owner}/${repo}/tree/${branch}/${path}`;
     },
-    [currentNode, repoParams],
+    [repoParams],
+  );
+
+  const createBlobUrl = useCallback(
+    (path: string) => {
+      if (!repoParams) return '';
+      const { owner, repo, branch } = repoParams;
+      return `/${owner}/${repo}/blob/${branch}/${path}`;
+    },
+    [repoParams],
   );
 
   useEffect(
@@ -186,55 +138,89 @@ function TIL() {
           owner,
           repo,
           type: type ?? 'tree',
+          pathParts: pathParts ?? [],
           branch: branch ?? defaultBranch,
           defaultBranch,
         });
-        setCurrentPathParts(pathParts);
+        // console.log('parser:', p, pathParts);
       })();
     },
     [navigate, params],
   );
 
   useEffect(
-    function setCurrentNodeFromParams() {
-      if (
-        !repoParams ||
-        !currentPathParts ||
-        !contentsState.data ||
-        contentsState.loading
-      ) {
+    function createContentsTree() {
+      if (!repoContentsState.data) {
         return;
       }
-      console.log('repoParams:', repoParams);
-      const { type } = repoParams;
-      if (!type || !isGitNodeType(type) || !currentPathParts) {
-        setCurrentNode(contentsState.data);
-      } else {
-        try {
-          const node = currentPathParts?.reduce<GitNode>(
-            (parentNode, path, index) => {
-              const parentTree = parentNode as GitTree;
-              if (index === currentPathParts.length - 1 && type === 'blob') {
-                return parentTree.blobs[path];
-              } else {
-                return parentTree.subTrees[path];
-              }
-            },
-            contentsState.data,
-          );
-          if (!node) {
-            throw new Error('node is not found');
+      const contents = new GitTree('', 'root');
+      const blobs = repoContentsState.data.tree.filter(
+        (node: GitTreeResponse | GitBlobResponse) =>
+          node.type === 'blob' && node.path.match(/\.md$/),
+      ) as GitBlobResponse[];
+
+      blobs.forEach((blob) => {
+        const pathParts = blob.path.split('/');
+        let currentNode = contents;
+        pathParts.forEach((pathPart, index) => {
+          if (index === pathParts.length - 1) {
+            currentNode.blobs[pathPart] = new GitBlob(
+              blob.path,
+              pathPart,
+              blob.size,
+              blob.sha,
+            );
+            return;
           }
-          setCurrentNode(node);
-        } catch (e) {
-          navigate('/404-not-found', { replace: true });
-        }
-      }
+          if (!currentNode.subtrees[pathPart]) {
+            const subtreePath =
+              currentNode.path !== ''
+                ? `${currentNode.path}/${pathPart}`
+                : pathPart;
+            currentNode.subtrees[pathPart] = new GitTree(subtreePath, pathPart);
+          }
+          currentNode = currentNode.subtrees[pathPart];
+        });
+      });
+      setContentsTree(contents);
     },
-    [contentsState, currentPathParts, repoParams, navigate],
+    [repoContentsState],
   );
 
-  if (contentsState.error || articleState.error) {
+  useEffect(
+    function setCurrentNodeWithParams() {
+      if (!contentsTree || !repoParams) {
+        return;
+      }
+      const { type, pathParts } = repoParams;
+      if (!type || !isGitNodeType(type)) {
+        setCurrentNode(contentsTree);
+        return;
+      }
+      try {
+        const node = pathParts.reduce<GitNode>((parentNode, path, index) => {
+          const parentTree = parentNode as GitTree;
+          // console.log('parentNode:', parentNode);
+          if (index === pathParts.length - 1 && type === 'blob') {
+            return parentTree.blobs[path];
+          } else {
+            return parentTree.subtrees[path];
+          }
+        }, contentsTree);
+        if (!node) {
+          throw new Error('invalid path');
+        }
+        setCurrentNode(node);
+      } catch (err) {
+        console.error(err);
+        navigate('/404-not-found', { replace: true });
+      }
+    },
+    [navigate, contentsTree, repoParams],
+  );
+
+  if (repoContentsState.error) {
+    console.error(repoContentsState.error);
     return <Navigate to={'/404-not-found'} replace={true} />;
   }
   return (
@@ -244,19 +230,14 @@ function TIL() {
         <Sidebar
           closeSidebar={closeSidebar}
           isSidebarOpen={isSidebarOpen}
-          loading={contentsState.loading}
-          repoParams={repoParams}
-          rootTree={contentsState.data}
+          createTreeUrl={createTreeUrl}
+          rootTree={contentsTree}
         />
-        <MainContent>
-          <Article
-            loading={contentsState.loading || articleState.loading}
-            article={{
-              text: articleState.data,
-              type: 'html',
-            }}
-          />
-        </MainContent>
+        <MainContent
+          createBlobUrl={createBlobUrl}
+          currentNode={currentNode}
+          repoParams={repoParams}
+        />
       </div>
     </div>
   );

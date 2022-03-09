@@ -1,24 +1,22 @@
-import { Fragment, useState } from 'react';
+import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XIcon } from '@heroicons/react/outline';
-import { GitTree, RepoParams } from '../../pages/TIL';
+import { GitTree } from '../../pages/TIL';
 import Item from './Item';
 
 type Props = {
   closeSidebar: () => void;
+  createTreeUrl: (path: string, isRoot?: boolean) => string;
   isSidebarOpen: boolean;
-  loading: boolean;
-  repoParams?: RepoParams;
   rootTree?: GitTree;
 };
 function Sidebar({
   closeSidebar,
+  createTreeUrl,
   isSidebarOpen,
-  loading,
-  repoParams,
   rootTree,
 }: Props) {
-  const isLoading = loading || !rootTree || !repoParams;
+  const isLoading = !rootTree;
 
   return (
     <>
@@ -76,7 +74,11 @@ function Sidebar({
                   {isLoading ? (
                     <div>로딩중</div>
                   ) : (
-                    <Item tree={rootTree} level={0} repoParams={repoParams} />
+                    <Item
+                      createTreeUrl={createTreeUrl}
+                      level={0}
+                      tree={rootTree}
+                    />
                   )}
                 </nav>
               </div>
@@ -94,7 +96,7 @@ function Sidebar({
               {isLoading ? (
                 <div>로딩중</div>
               ) : (
-                <Item tree={rootTree} level={0} repoParams={repoParams} />
+                <Item createTreeUrl={createTreeUrl} level={0} tree={rootTree} />
               )}
             </nav>
           </div>
