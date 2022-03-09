@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { GitBlob } from '../../pages/TIL';
+import { GitBlob } from '../../pages/Repository';
 
 type Props = {
   blob: GitBlob;

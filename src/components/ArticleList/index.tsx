@@ -1,5 +1,5 @@
 import React from 'react';
-import { GitTree } from '../../pages/TIL';
+import { GitTree } from '../../pages/Repository';
 import Item from './Item';
 
 type Props = {

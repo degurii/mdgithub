@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XIcon } from '@heroicons/react/outline';
-import { GitTree } from '../../pages/TIL';
+import { GitTree } from '../../pages/Repository';
 import Item from './Item';
 
 type Props = {

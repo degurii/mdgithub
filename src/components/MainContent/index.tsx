@@ -1,4 +1,4 @@
-import { GitNode, GitTree, RepoParams } from '../../pages/TIL';
+import { GitNode, GitTree, RepoParams } from '../../pages/Repository';
 import ArticleList from '../ArticleList';
 import Article from '../Article';
 import { useAsync } from '../../hooks';

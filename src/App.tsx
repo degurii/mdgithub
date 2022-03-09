@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
-import TIL from './pages/TIL';
+import TIL from './pages/Repository';
 import NotFound from './pages/NotFound';
 
 function App() {

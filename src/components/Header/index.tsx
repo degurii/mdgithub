@@ -1,7 +1,7 @@
 import React from 'react';
 import { MenuAlt2Icon } from '@heroicons/react/outline';
 import { Link } from 'react-router-dom';
-import { RepoParams } from '../../pages/TIL';
+import { RepoParams } from '../../pages/Repository';
 
 type Props = {
   openSidebar: () => void;

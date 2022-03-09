@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { GitBlob, GitTree } from '../../pages/TIL';
+import { GitBlob, GitTree } from '../../pages/Repository';
 import { classNames } from '../../utils/tailwind';
 
 type Props = {
