@@ -26,8 +26,8 @@ function Header({ openSidebar, repoParams }: Props) {
               className="prose prose-h1:text-2xl ml-2"
             >
               <h1>
-                <span className="text-indigo-500">{repoParams.owner} /</span>{' '}
-                {repoParams.repo}
+                <span className="text-indigo-500">{repoParams.owner} /</span>
+                <span> {repoParams.repo}</span>
               </h1>
             </Link>
           ) : (

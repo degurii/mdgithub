@@ -32,19 +32,12 @@ function Home({ inputUrl, handleChangeInputUrl }: Props) {
     }
   };
 
-  useEffect(() => {
-    getRateLimit()
-      .then((res) => {
-        console.log('rate limit:', res);
-      })
-      .catch((err) => console.error('error:', err));
-  });
   return (
     <div className="relative pt-36 pb-16 sm:pb-24">
       <main className="mt-16 mx-auto px-4 ">
         <h1 className="text-center text-5xl sm:text-7xl tracking-tight font-extrabold text-gray-900">
           <span className="block select-none">
-            Github <span className="text-indigo-500">TIL</span>
+            <span className="text-indigo-500">Markdown</span> Github
           </span>
         </h1>
         <div className="mt-9 sm:mt-14 relative flex items-center justify-center">
