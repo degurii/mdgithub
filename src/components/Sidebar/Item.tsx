@@ -1,37 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { GitBlob, GitTree, RepoParams } from '../../pages/TIL';
+import { GitBlob, GitTree } from '../../pages/TIL';
 import { classNames } from '../../utils/tailwind';
 
 type Props = {
+  createTreeUrl: (path: string, isRoot?: boolean) => string;
   level: number;
-  repoParams: RepoParams;
   tree: GitTree;
 };
 
-function Item({ level, repoParams, tree }: Props) {
+function Item({ createTreeUrl, level, tree }: Props) {
   const [subTrees, setSubTree] = useState<GitTree[]>([]);
   const [blobs, setBlobs] = useState<GitBlob[]>([]);
-  const { owner, repo, branch, defaultBranch } = repoParams;
-
-  const linkUrl =
-    level === 0 && branch === defaultBranch
-      ? `/${owner}/${repo}`
-      : `/${owner}/${repo}/tree/${branch}${tree.path}`;
 
   useEffect(() => {
-    const subTrees = Object.keys(tree.subTrees).map(
-      (name) => tree.subTrees[name],
+    const subTrees = Object.keys(tree.subtrees).map(
+      (name) => tree.subtrees[name],
     );
     setSubTree(subTrees);
     const blobs = Object.keys(tree.blobs).map((name) => tree.blobs[name]);
     setBlobs(blobs);
   }, [tree]);
 
+  const isRoot = level === 0;
   return (
     <>
       <Link
-        to={linkUrl}
+        to={createTreeUrl(tree.path, isRoot)}
         className={classNames(
           `pl-${2 + level * 2}`,
           'group rounded-md py-2 pr-2 flex items-center text-sm font-medium',
@@ -42,8 +37,8 @@ function Item({ level, repoParams, tree }: Props) {
       {subTrees.map((tree) => (
         <Item
           key={tree.path}
+          createTreeUrl={createTreeUrl}
           level={level + 1}
-          repoParams={repoParams}
           tree={tree}
         />
       ))}
