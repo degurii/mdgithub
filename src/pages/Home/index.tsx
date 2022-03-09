@@ -34,8 +34,8 @@ function Home({ inputUrl, handleChangeInputUrl }: Props) {
 
   useEffect(() => {
     getRateLimit()
-      .then(({ data }) => {
-        console.log('rate limit:', data);
+      .then((res) => {
+        console.log('rate limit:', res);
       })
       .catch((err) => console.error('error:', err));
   });
