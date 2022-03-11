@@ -1,7 +1,13 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, {
+  AxiosInstance,
+  AxiosRequestConfig,
+  AxiosRequestHeaders,
+  AxiosResponse,
+} from 'axios';
 
 export type Instance = AxiosInstance;
 export type RequestConfig = AxiosRequestConfig;
+export type RequestHeaders = AxiosRequestHeaders;
 export type Response<T = any, D = any> = AxiosResponse<T, D>;
 
 // 추후 다른 http 메서드도 쓰게 되면 추가해야 함
@@ -10,6 +16,10 @@ export class HttpClient {
 
   constructor(config: RequestConfig) {
     this.instance = axios.create(config);
+
+    this.instance.interceptors.response.use(undefined, (err) => {
+      throw new Error(err);
+    });
   }
 
   useConfig(config: RequestConfig = {}): ConfigBuilder {
@@ -39,8 +49,13 @@ class ConfigBuilder {
     this.client = client;
   }
 
-  params(params: Object) {
+  params(params: any) {
     this.config.params = params;
+    return this;
+  }
+
+  headers(headers: RequestHeaders) {
+    this.config.headers = headers;
     return this;
   }
 
