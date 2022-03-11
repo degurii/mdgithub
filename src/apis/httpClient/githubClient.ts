@@ -9,10 +9,6 @@ const config: RequestConfig = {
 class GithubClient extends HttpClient {
   constructor(config: RequestConfig = {}) {
     super(config);
-
-    this.instance.interceptors.response.use(undefined, (err) => {
-      throw new Error(err);
-    });
   }
 }
 
