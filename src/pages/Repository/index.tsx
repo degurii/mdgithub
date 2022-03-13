@@ -92,7 +92,6 @@ function Repository() {
         return;
       }
       const { owner, repo, branch } = branchInfo;
-      console.log('getTrees');
       const res = await getTrees(owner, repo, branch, {
         recursive: 1,
       });
@@ -134,10 +133,6 @@ function Repository() {
     [branchInfo],
   );
 
-  /*
-    owner, repo, branch가 바뀌지 않았다면 -> pathInfo만 업데이트
-    바뀌었으면 -> branchInfo, pathInfo 모두 업데이트
-  */
   useEffect(
     function updateBranchInfoWithParams() {
       if (!params || !params.owner || !params.repo) {
@@ -249,7 +244,6 @@ function Repository() {
       try {
         const node = pathParts.reduce<GitNode>((parentNode, path, index) => {
           const parentTree = parentNode as GitTree;
-          // console.log('parentNode:', parentNode);
           if (index === pathParts.length - 1 && type === 'blob') {
             return parentTree.blobs[path];
           } else {
