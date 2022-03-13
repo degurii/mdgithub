@@ -39,7 +39,7 @@ const createReducer =
     }
   };
 
-export const useAsync = <T = any>(
+export const useAsync = <T>(
   fn: () => Promise<T>,
   deps: DependencyList = [],
 ): [State<T>, () => void] => {
@@ -49,14 +49,19 @@ export const useAsync = <T = any>(
 
   const fetchData = useCallback(() => {
     dispatch({ type: ActionType.LOADING });
-    fn()
-      .then((result) =>
+    try {
+      fn().then((result) =>
         dispatch({
           type: ActionType.SUCCESS,
           payload: result,
         }),
-      )
-      .catch((error) => dispatch({ type: ActionType.ERROR, payload: error }));
+      );
+    } catch (error) {
+      dispatch({
+        type: ActionType.ERROR,
+        payload: error as Error,
+      });
+    }
   }, deps);
 
   useEffect(() => {
