@@ -1,37 +1,36 @@
-import { GitNode, GitTree, RepoParams } from '../../pages/Repository';
+import { BranchInfo, GitNode, GitTree } from '../../pages/Repository';
 import ArticleList from '../ArticleList';
 import Article from '../Article';
 import { useAsync } from '../../hooks';
 import { getBlobs, postMarkdown } from '../../apis/services/github';
-import { decode } from 'js-base64';
 import { useEffect, useState } from 'react';
+import { decode } from 'js-base64';
 
 type Props = {
   createBlobUrl: (path: string) => string;
   currentNode?: GitNode;
-  repoParams?: RepoParams;
+  branchInfo?: BranchInfo;
 };
 
 export type ArticleData = {
-  text: string;
+  text?: string;
   type: 'html' | 'markdown';
 };
 
-function MainContent({ currentNode, repoParams, createBlobUrl }: Props) {
-  const [articleState] = useAsync(
+function MainContent({ currentNode, branchInfo, createBlobUrl }: Props) {
+  const [articleState] = useAsync<string | undefined>(
     async function fetchArticle() {
-      if (!repoParams || !currentNode) {
-        return undefined;
+      if (!branchInfo || !currentNode) {
+        return;
       }
       if (currentNode.type === 'blob') {
-        const blob = currentNode;
-        return getBlobs(repoParams.owner, repoParams.repo, blob.sha)
-          .then(({ data }) => decode(data.content))
+        return getBlobs(branchInfo.owner, branchInfo.repo, currentNode.sha)
+          .then((res) => decode(res.data.content))
           .then(postMarkdown)
           .then(({ data: articleHtml }) => articleHtml);
       }
     },
-    [currentNode, repoParams],
+    [currentNode, branchInfo],
   );
   const [article, setArticle] = useState<ArticleData | undefined>();
 
@@ -45,7 +44,7 @@ function MainContent({ currentNode, repoParams, createBlobUrl }: Props) {
     });
   }, [articleState]);
 
-  if (!currentNode || !repoParams) {
+  if (!currentNode || !branchInfo) {
     return null;
   }
   return (

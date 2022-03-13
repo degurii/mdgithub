@@ -66,86 +66,135 @@ const parseUrlParamsWithoutOwnerAndRepo = (params: string) => {
   return { type, branch, pathParts };
 };
 
-export type RepoParams = {
+export type BranchInfo = {
   owner: string;
   repo: string;
-  type: string;
-  pathParts: string[];
   branch: string;
   defaultBranch: string;
 };
 
-function TIL() {
+type PathInfo = {
+  type: string;
+  pathParts: string[];
+};
+
+function Repository() {
   const params = useParams();
   const navigate = useNavigate();
-  const [repoParams, setRepoParams] = useState<RepoParams | undefined>();
+  const [branchInfo, setBranchInfo] = useState<BranchInfo | undefined>();
+  const [pathInfo, setPathInfo] = useState<PathInfo | undefined>();
   const [currentNode, setCurrentNode] = useState<GitNode | undefined>();
   const [isSidebarOpen, openSidebar, closeSidebar] = useBoolean(false);
+
   const [repoContentsState] = useAsync(
     async function fetchContents() {
-      if (!repoParams) {
-        return undefined;
+      if (!branchInfo) {
+        return;
       }
-      const { owner, repo, branch } = repoParams;
+      const { owner, repo, branch } = branchInfo;
+      console.log('getTrees');
       const res = await getTrees(owner, repo, branch, {
         recursive: 1,
       });
       return res.data;
     },
-    [repoParams],
+    [branchInfo],
   );
   const [contentsTree, setContentsTree] = useState<GitTree | undefined>();
 
+  const navigateTo404 = useCallback(() => {
+    navigate('/404', { replace: true });
+  }, [navigate]);
+
   const createTreeUrl = useCallback(
     (path: string, isRoot?: boolean) => {
-      if (!repoParams) return '';
-      const { owner, repo, branch, defaultBranch } = repoParams;
+      if (!branchInfo) {
+        return '';
+      }
+
+      const { owner, repo, branch, defaultBranch } = branchInfo;
+
       if (isRoot && branch === defaultBranch) {
         return `/${owner}/${repo}`;
       }
       return `/${owner}/${repo}/tree/${branch}/${path}`;
     },
-    [repoParams],
+    [branchInfo],
   );
 
   const createBlobUrl = useCallback(
     (path: string) => {
-      if (!repoParams) return '';
-      const { owner, repo, branch } = repoParams;
+      if (!branchInfo) {
+        return '';
+      }
+
+      const { owner, repo, branch } = branchInfo;
       return `/${owner}/${repo}/blob/${branch}/${path}`;
     },
-    [repoParams],
+    [branchInfo],
   );
 
+  /*
+    owner, repo, branch가 바뀌지 않았다면 -> pathInfo만 업데이트
+    바뀌었으면 -> branchInfo, pathInfo 모두 업데이트
+  */
   useEffect(
-    function parseParams() {
-      if (!params) {
+    function updateBranchInfoWithParams() {
+      if (!params || !params.owner || !params.repo) {
         return;
       }
       const { owner, repo } = params;
-      if (!owner || !repo) {
-        return;
-      }
-      const { type, branch, pathParts } = parseUrlParamsWithoutOwnerAndRepo(
+      const { branch } = parseUrlParamsWithoutOwnerAndRepo(
         params['*'] as string,
       );
+
+      const isSameRepo =
+        branchInfo && branchInfo.owner === owner && branchInfo.repo === repo;
+
+      const isSameBranch =
+        branchInfo && (!branch || branchInfo.branch === branch);
+
+      if (isSameRepo && isSameBranch) {
+        return;
+      }
+
+      (async () => {
+        try {
+          const defaultBranch = await getDefaultBranchName(owner, repo);
+          setBranchInfo({
+            owner,
+            repo,
+            branch: branch ?? defaultBranch,
+            defaultBranch,
+          });
+        } catch (error) {
+          console.error(error);
+          navigateTo404();
+        }
+      })();
+    },
+    [navigateTo404, params, branchInfo],
+  );
+
+  useEffect(
+    function updatePathInfoWithParams() {
+      if (!params || !branchInfo) {
+        return;
+      }
+      const { owner, repo } = branchInfo;
+      const { type, pathParts } = parseUrlParamsWithoutOwnerAndRepo(
+        params['*'] as string,
+      );
+
       if (type && !isGitNodeType(type)) {
         navigate(`/${owner}/${repo}`, { replace: true });
       }
-      (async () => {
-        const defaultBranch = await getDefaultBranchName(owner, repo);
-        setRepoParams({
-          owner,
-          repo,
-          type: type ?? 'tree',
-          pathParts: pathParts ?? [],
-          branch: branch ?? defaultBranch,
-          defaultBranch,
-        });
-        // console.log('parser:', p, pathParts);
-      })();
+      setPathInfo({
+        type: type ?? 'tree',
+        pathParts: pathParts ?? [],
+      });
     },
-    [navigate, params],
+    [navigate, params, branchInfo],
   );
 
   useEffect(
@@ -188,11 +237,11 @@ function TIL() {
   );
 
   useEffect(
-    function setCurrentNodeWithParams() {
-      if (!contentsTree || !repoParams) {
+    function setCurrentNodeWithUrlInfo() {
+      if (!contentsTree || !branchInfo || !pathInfo) {
         return;
       }
-      const { type, pathParts } = repoParams;
+      const { type, pathParts } = pathInfo;
       if (!type || !isGitNodeType(type)) {
         setCurrentNode(contentsTree);
         return;
@@ -213,10 +262,10 @@ function TIL() {
         setCurrentNode(node);
       } catch (err) {
         console.error(err);
-        navigate('/404-not-found', { replace: true });
+        navigateTo404();
       }
     },
-    [navigate, contentsTree, repoParams],
+    [navigateTo404, contentsTree, branchInfo, pathInfo],
   );
 
   if (repoContentsState.error) {
@@ -225,7 +274,7 @@ function TIL() {
   }
   return (
     <div className="flex flex-col h-screen">
-      <Header openSidebar={openSidebar} repoParams={repoParams} />
+      <Header openSidebar={openSidebar} branchInfo={branchInfo} />
       <div className="flex grow">
         <Sidebar
           closeSidebar={closeSidebar}
@@ -236,11 +285,11 @@ function TIL() {
         <MainContent
           createBlobUrl={createBlobUrl}
           currentNode={currentNode}
-          repoParams={repoParams}
+          branchInfo={branchInfo}
         />
       </div>
     </div>
   );
 }
 
-export default TIL;
+export default Repository;
