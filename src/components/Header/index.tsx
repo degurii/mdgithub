@@ -1,13 +1,13 @@
 import React from 'react';
 import { MenuAlt2Icon } from '@heroicons/react/outline';
 import { Link } from 'react-router-dom';
-import { RepoParams } from '../../pages/Repository';
+import { BranchInfo } from '../../pages/Repository';
 
 type Props = {
   openSidebar: () => void;
-  repoParams?: RepoParams;
+  branchInfo?: BranchInfo;
 };
-function Header({ openSidebar, repoParams }: Props) {
+function Header({ openSidebar, branchInfo }: Props) {
   return (
     <header className="mx-auto flex-none w-full border-b-2 border-gray-100 py-4">
       <div className="flex justify-between items-center px-4">
@@ -20,14 +20,14 @@ function Header({ openSidebar, repoParams }: Props) {
             <span className="sr-only">Open sidebar</span>
             <MenuAlt2Icon className="h-6 w-6" aria-hidden="true" />
           </button>
-          {repoParams ? (
+          {branchInfo ? (
             <Link
-              to={`/${repoParams.owner}/${repoParams.repo}`}
+              to={`/${branchInfo.owner}/${branchInfo.repo}`}
               className="prose prose-h1:text-2xl ml-2"
             >
               <h1>
-                <span className="text-indigo-500">{repoParams.owner} /</span>
-                <span> {repoParams.repo}</span>
+                <span className="text-indigo-500">{branchInfo.owner} /</span>
+                <span> {branchInfo.repo}</span>
               </h1>
             </Link>
           ) : (

@@ -1,6 +1,5 @@
 import { githubClient } from '../httpClient';
 import { GITHUB_API_BASE_URL } from '../../utils/constants';
-import { decode } from 'js-base64';
 
 export const getWithUrl = (url: string, params: any) => {
   const baseUrl = GITHUB_API_BASE_URL ?? '';
@@ -31,14 +30,6 @@ export const getTrees = (
 export const getBlobs = (owner: string, repo: string, sha: string) =>
   githubClient.get(`/repos/${owner}/${repo}/git/blobs/${sha}`);
 
-export const getRawBlobs = (owner: string, repo: string, sha: string) =>
-  githubClient
-    .useConfig()
-    .headers({
-      Accept: 'application/vnd.github.v3+json',
-    })
-    .get(`/repos/${owner}/${repo}/git/blobs/${sha}`);
-
 export const getRateLimit = () => githubClient.get('/rate_limit');
 
 export const postMarkdown = (markdown: string, mode: string = 'gfm') =>
@@ -46,13 +37,3 @@ export const postMarkdown = (markdown: string, mode: string = 'gfm') =>
     text: markdown,
     mode,
   });
-
-export const getMarkdownBlobAndConvertToHtml = (
-  owner: string,
-  repo: string,
-  sha: string,
-): Promise<string> =>
-  getRawBlobs(owner, repo, sha)
-    .then(({ data }) => decode(data.content))
-    .then(postMarkdown)
-    .then(({ data: articleHtml }) => articleHtml);
