@@ -1,17 +1,19 @@
 import React from 'react';
-import { GitTree } from '../../pages/Repository';
+import { ArticleData } from '../MainContent';
 import Item from './Item';
 
 type Props = {
-  currentNode: GitTree;
-  createBlobUrl: (path: string) => string;
+  articles: ArticleData[] | null;
 };
 
-function ArticleList({ createBlobUrl, currentNode }: Props) {
+function ArticleList({ articles }: Props) {
+  if (!articles) {
+    return <div>글 목록 로딩중</div>;
+  }
   return (
-    <div className="flex flex-col">
-      {Object.values(currentNode.blobs).map((blob) => (
-        <Item key={blob.path} blob={blob} createBlobUrl={createBlobUrl} />
+    <div className="flex flex-col w-full max-w-prose">
+      {articles.map((article) => (
+        <Item key={article.path} article={article} url={article.url} />
       ))}
     </div>
   );
