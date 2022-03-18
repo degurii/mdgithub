@@ -4,6 +4,7 @@ import axios, {
   AxiosRequestHeaders,
   AxiosResponse,
 } from 'axios';
+import isDev from '../../utils/devDetect';
 
 export type Instance = AxiosInstance;
 export type RequestConfig = AxiosRequestConfig;
@@ -17,9 +18,17 @@ export class HttpClient {
   constructor(config: RequestConfig) {
     this.instance = axios.create(config);
 
-    this.instance.interceptors.response.use(undefined, (err) => {
-      throw new Error(err);
-    });
+    this.instance.interceptors.response.use(
+      (res) => {
+        if (isDev()) {
+          console.log(res.headers['x-ratelimit-remaining']);
+        }
+        return res;
+      },
+      (err) => {
+        throw new Error(err);
+      },
+    );
   }
 
   useConfig(config: RequestConfig = {}): ConfigBuilder {

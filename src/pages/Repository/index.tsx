@@ -28,12 +28,14 @@ export class GitTree {
   name: string;
   subtrees: { [name: string]: GitTree };
   blobs: { [name: string]: GitBlob };
-  constructor(path: string, name: string) {
+  parent: GitTree | null;
+  constructor(path: string, name: string, parent: GitTree | null) {
     this.type = 'tree';
     this.path = path;
     this.name = name;
     this.subtrees = {};
     this.blobs = {};
+    this.parent = parent;
   }
 }
 
@@ -43,12 +45,20 @@ export class GitBlob {
   name: string;
   size: number;
   sha: string;
-  constructor(path: string, name: string, size: number, sha: string) {
+  parent: GitTree;
+  constructor(
+    path: string,
+    name: string,
+    size: number,
+    sha: string,
+    parent: GitTree,
+  ) {
     this.type = 'blob';
     this.path = path;
     this.name = name.split('.').slice(0, -1).join('.');
     this.size = size;
     this.sha = sha;
+    this.parent = parent;
   }
 }
 
@@ -66,86 +76,130 @@ const parseUrlParamsWithoutOwnerAndRepo = (params: string) => {
   return { type, branch, pathParts };
 };
 
-export type RepoParams = {
+export type BranchInfo = {
   owner: string;
   repo: string;
-  type: string;
-  pathParts: string[];
   branch: string;
   defaultBranch: string;
 };
 
-function TIL() {
+type PathInfo = {
+  type: string;
+  pathParts: string[];
+};
+
+function Repository() {
   const params = useParams();
   const navigate = useNavigate();
-  const [repoParams, setRepoParams] = useState<RepoParams | undefined>();
+  const [branchInfo, setBranchInfo] = useState<BranchInfo | undefined>();
+  const [pathInfo, setPathInfo] = useState<PathInfo | undefined>();
   const [currentNode, setCurrentNode] = useState<GitNode | undefined>();
   const [isSidebarOpen, openSidebar, closeSidebar] = useBoolean(false);
+
   const [repoContentsState] = useAsync(
     async function fetchContents() {
-      if (!repoParams) {
-        return undefined;
+      if (!branchInfo) {
+        return;
       }
-      const { owner, repo, branch } = repoParams;
+      const { owner, repo, branch } = branchInfo;
       const res = await getTrees(owner, repo, branch, {
         recursive: 1,
       });
       return res.data;
     },
-    [repoParams],
+    [branchInfo],
   );
   const [contentsTree, setContentsTree] = useState<GitTree | undefined>();
 
+  const navigateToNotFound = useCallback(() => {
+    navigate('/404', { replace: true });
+  }, [navigate]);
+
   const createTreeUrl = useCallback(
     (path: string, isRoot?: boolean) => {
-      if (!repoParams) return '';
-      const { owner, repo, branch, defaultBranch } = repoParams;
+      if (!branchInfo) {
+        return '';
+      }
+
+      const { owner, repo, branch, defaultBranch } = branchInfo;
+
       if (isRoot && branch === defaultBranch) {
         return `/${owner}/${repo}`;
       }
       return `/${owner}/${repo}/tree/${branch}/${path}`;
     },
-    [repoParams],
+    [branchInfo],
   );
 
   const createBlobUrl = useCallback(
     (path: string) => {
-      if (!repoParams) return '';
-      const { owner, repo, branch } = repoParams;
+      if (!branchInfo) {
+        return '';
+      }
+
+      const { owner, repo, branch } = branchInfo;
       return `/${owner}/${repo}/blob/${branch}/${path}`;
     },
-    [repoParams],
+    [branchInfo],
   );
 
   useEffect(
-    function parseParams() {
-      if (!params) {
+    function updateBranchInfoWithParams() {
+      if (!params || !params.owner || !params.repo) {
         return;
       }
       const { owner, repo } = params;
-      if (!owner || !repo) {
-        return;
-      }
-      const { type, branch, pathParts } = parseUrlParamsWithoutOwnerAndRepo(
+      const { branch } = parseUrlParamsWithoutOwnerAndRepo(
         params['*'] as string,
       );
+
+      const isSameRepo =
+        branchInfo && branchInfo.owner === owner && branchInfo.repo === repo;
+
+      const isSameBranch =
+        branchInfo && (!branch || branchInfo.branch === branch);
+
+      if (isSameRepo && isSameBranch) {
+        return;
+      }
+
+      (async () => {
+        try {
+          const defaultBranch = await getDefaultBranchName(owner, repo);
+          setBranchInfo({
+            owner,
+            repo,
+            branch: branch ?? defaultBranch,
+            defaultBranch,
+          });
+        } catch (error) {
+          console.error(error);
+          navigateToNotFound();
+        }
+      })();
+    },
+    [navigateToNotFound, params, branchInfo],
+  );
+
+  useEffect(
+    function updatePathInfoWithParams() {
+      if (!params || !branchInfo) {
+        return;
+      }
+      const { owner, repo } = branchInfo;
+      const { type, pathParts } = parseUrlParamsWithoutOwnerAndRepo(
+        params['*'] as string,
+      );
+
       if (type && !isGitNodeType(type)) {
         navigate(`/${owner}/${repo}`, { replace: true });
       }
-      (async () => {
-        const defaultBranch = await getDefaultBranchName(owner, repo);
-        setRepoParams({
-          owner,
-          repo,
-          type: type ?? 'tree',
-          pathParts: pathParts ?? [],
-          branch: branch ?? defaultBranch,
-          defaultBranch,
-        });
-        // console.log('parser:', p, pathParts);
-      })();
+      setPathInfo({
+        type: type ?? 'tree',
+        pathParts: pathParts ?? [],
+      });
     },
-    [navigate, params],
+    [navigate, params, branchInfo],
   );
 
   useEffect(
@@ -153,7 +207,7 @@ function TIL() {
       if (!repoContentsState.data) {
         return;
       }
-      const contents = new GitTree('', 'root');
+      const contents = new GitTree('', 'root', null);
       const blobs = repoContentsState.data.tree.filter(
         (node: GitTreeResponse | GitBlobResponse) =>
           node.type === 'blob' && node.path.match(/\.md$/),
@@ -169,6 +223,7 @@ function TIL() {
               pathPart,
               blob.size,
               blob.sha,
+              currentNode,
             );
             return;
           }
@@ -177,7 +232,11 @@ function TIL() {
               currentNode.path !== ''
                 ? `${currentNode.path}/${pathPart}`
                 : pathPart;
-            currentNode.subtrees[pathPart] = new GitTree(subtreePath, pathPart);
+            currentNode.subtrees[pathPart] = new GitTree(
+              subtreePath,
+              pathPart,
+              currentNode,
+            );
           }
           currentNode = currentNode.subtrees[pathPart];
         });
@@ -188,11 +247,11 @@ function TIL() {
   );
 
   useEffect(
-    function setCurrentNodeWithParams() {
-      if (!contentsTree || !repoParams) {
+    function setCurrentNodeWithUrlInfo() {
+      if (!contentsTree || !branchInfo || !pathInfo) {
         return;
       }
-      const { type, pathParts } = repoParams;
+      const { type, pathParts } = pathInfo;
       if (!type || !isGitNodeType(type)) {
         setCurrentNode(contentsTree);
         return;
@@ -200,7 +259,6 @@ function TIL() {
       try {
         const node = pathParts.reduce<GitNode>((parentNode, path, index) => {
           const parentTree = parentNode as GitTree;
-          // console.log('parentNode:', parentNode);
           if (index === pathParts.length - 1 && type === 'blob') {
             return parentTree.blobs[path];
           } else {
@@ -213,10 +271,10 @@ function TIL() {
         setCurrentNode(node);
       } catch (err) {
         console.error(err);
-        navigate('/404-not-found', { replace: true });
+        navigateToNotFound();
       }
     },
-    [navigate, contentsTree, repoParams],
+    [navigateToNotFound, contentsTree, branchInfo, pathInfo],
   );
 
   if (repoContentsState.error) {
@@ -225,7 +283,7 @@ function TIL() {
   }
   return (
     <div className="flex flex-col h-screen">
-      <Header openSidebar={openSidebar} repoParams={repoParams} />
+      <Header openSidebar={openSidebar} branchInfo={branchInfo} />
       <div className="flex grow">
         <Sidebar
           closeSidebar={closeSidebar}
@@ -236,11 +294,12 @@ function TIL() {
         <MainContent
           createBlobUrl={createBlobUrl}
           currentNode={currentNode}
-          repoParams={repoParams}
+          branchInfo={branchInfo}
+          navigateToNotFound={navigateToNotFound}
         />
       </div>
     </div>
   );
 }
 
-export default TIL;
+export default Repository;

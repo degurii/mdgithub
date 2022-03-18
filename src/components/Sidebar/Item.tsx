@@ -7,39 +7,50 @@ type Props = {
   createTreeUrl: (path: string, isRoot?: boolean) => string;
   level: number;
   tree: GitTree;
+  isRoot: boolean;
+  onClick?: () => void;
 };
 
-function Item({ createTreeUrl, level, tree }: Props) {
-  const [subTrees, setSubTree] = useState<GitTree[]>([]);
+const paddingLeft: { [level: number]: string } = {
+  0: 'pl-2',
+  1: 'pl-6',
+  2: 'pl-10',
+  3: 'pl-14',
+};
+
+function Item({ createTreeUrl, level, tree, isRoot, onClick }: Props) {
+  const [subtrees, setSubtree] = useState<GitTree[]>([]);
   const [blobs, setBlobs] = useState<GitBlob[]>([]);
 
   useEffect(() => {
-    const subTrees = Object.keys(tree.subtrees).map(
+    const subtrees = Object.keys(tree.subtrees).map(
       (name) => tree.subtrees[name],
     );
-    setSubTree(subTrees);
+    setSubtree(subtrees);
     const blobs = Object.keys(tree.blobs).map((name) => tree.blobs[name]);
     setBlobs(blobs);
   }, [tree]);
 
-  const isRoot = level === 0;
   return (
     <>
       <Link
         to={createTreeUrl(tree.path, isRoot)}
         className={classNames(
-          `pl-${2 + level * 2}`,
+          paddingLeft[Math.min(level, 3)],
           'group rounded-md py-2 pr-2 flex items-center text-sm font-medium',
         )}
+        onClick={onClick}
       >
         {tree.name} ({blobs.length ?? 0})
       </Link>
-      {subTrees.map((tree) => (
+      {subtrees.map((tree) => (
         <Item
           key={tree.path}
           createTreeUrl={createTreeUrl}
-          level={level + 1}
+          level={isRoot ? 0 : level + 1}
           tree={tree}
+          isRoot={false}
+          onClick={onClick}
         />
       ))}
     </>

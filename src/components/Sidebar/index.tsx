@@ -78,6 +78,8 @@ function Sidebar({
                       createTreeUrl={createTreeUrl}
                       level={0}
                       tree={rootTree}
+                      isRoot
+                      onClick={closeSidebar}
                     />
                   )}
                 </nav>
@@ -89,14 +91,18 @@ function Sidebar({
 
       {/* Static sidebar for desktop */}
       <aside className="hidden lg:shrink-0 lg:flex lg:w-80 lg:flex-col lg:inset-y-0">
-        {/* Sidebar component, swap this element with another sidebar if you like */}
         <div className="border-r border-gray-200 pt-5 flex flex-col flex-grow bg-white overflow-y-auto">
           <div className="flex-grow mt-5 flex flex-col">
             <nav className="flex-1 px-2 pb-4 space-y-1">
               {isLoading ? (
                 <div>로딩중</div>
               ) : (
-                <Item createTreeUrl={createTreeUrl} level={0} tree={rootTree} />
+                <Item
+                  createTreeUrl={createTreeUrl}
+                  level={0}
+                  tree={rootTree}
+                  isRoot
+                />
               )}
             </nav>
           </div>
