@@ -28,12 +28,14 @@ export class GitTree {
   name: string;
   subtrees: { [name: string]: GitTree };
   blobs: { [name: string]: GitBlob };
-  constructor(path: string, name: string) {
+  parent: GitTree | null;
+  constructor(path: string, name: string, parent: GitTree | null) {
     this.type = 'tree';
     this.path = path;
     this.name = name;
     this.subtrees = {};
     this.blobs = {};
+    this.parent = parent;
   }
 }
 
@@ -43,12 +45,20 @@ export class GitBlob {
   name: string;
   size: number;
   sha: string;
-  constructor(path: string, name: string, size: number, sha: string) {
+  parent: GitTree;
+  constructor(
+    path: string,
+    name: string,
+    size: number,
+    sha: string,
+    parent: GitTree,
+  ) {
     this.type = 'blob';
     this.path = path;
     this.name = name.split('.').slice(0, -1).join('.');
     this.size = size;
     this.sha = sha;
+    this.parent = parent;
   }
 }
 
@@ -101,7 +111,7 @@ function Repository() {
   );
   const [contentsTree, setContentsTree] = useState<GitTree | undefined>();
 
-  const navigateTo404 = useCallback(() => {
+  const navigateToNotFound = useCallback(() => {
     navigate('/404', { replace: true });
   }, [navigate]);
 
@@ -164,11 +174,11 @@ function Repository() {
           });
         } catch (error) {
           console.error(error);
-          navigateTo404();
+          navigateToNotFound();
         }
       })();
     },
-    [navigateTo404, params, branchInfo],
+    [navigateToNotFound, params, branchInfo],
   );
 
   useEffect(
@@ -197,7 +207,7 @@ function Repository() {
       if (!repoContentsState.data) {
         return;
       }
-      const contents = new GitTree('', 'root');
+      const contents = new GitTree('', 'root', null);
       const blobs = repoContentsState.data.tree.filter(
         (node: GitTreeResponse | GitBlobResponse) =>
           node.type === 'blob' && node.path.match(/\.md$/),
@@ -213,6 +223,7 @@ function Repository() {
               pathPart,
               blob.size,
               blob.sha,
+              currentNode,
             );
             return;
           }
@@ -221,7 +232,11 @@ function Repository() {
               currentNode.path !== ''
                 ? `${currentNode.path}/${pathPart}`
                 : pathPart;
-            currentNode.subtrees[pathPart] = new GitTree(subtreePath, pathPart);
+            currentNode.subtrees[pathPart] = new GitTree(
+              subtreePath,
+              pathPart,
+              currentNode,
+            );
           }
           currentNode = currentNode.subtrees[pathPart];
         });
@@ -256,10 +271,10 @@ function Repository() {
         setCurrentNode(node);
       } catch (err) {
         console.error(err);
-        navigateTo404();
+        navigateToNotFound();
       }
     },
-    [navigateTo404, contentsTree, branchInfo, pathInfo],
+    [navigateToNotFound, contentsTree, branchInfo, pathInfo],
   );
 
   if (repoContentsState.error) {
@@ -280,6 +295,7 @@ function Repository() {
           createBlobUrl={createBlobUrl}
           currentNode={currentNode}
           branchInfo={branchInfo}
+          navigateToNotFound={navigateToNotFound}
         />
       </div>
     </div>
