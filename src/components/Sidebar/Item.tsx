@@ -13,12 +13,9 @@ type Props = {
 
 const paddingLeft: { [level: number]: string } = {
   0: 'pl-2',
-  1: 'pl-4',
-  2: 'pl-6',
-  3: 'pl-8',
-  4: 'pl-10',
-  5: 'pl-12',
-  6: 'pl-14',
+  1: 'pl-6',
+  2: 'pl-10',
+  3: 'pl-14',
 };
 
 function Item({ createTreeUrl, level, tree, isRoot, onClick }: Props) {
