@@ -14,8 +14,8 @@ type Action<T> =
 
 type State<T> = {
   loading: boolean;
-  data?: T;
-  error?: Error;
+  data: T | null;
+  error: Error | null;
 };
 
 const createReducer =
@@ -23,15 +23,17 @@ const createReducer =
   (prevState: State<T>, action: Action<T>): State<T> => {
     switch (action.type) {
       case ActionType.LOADING:
-        return { loading: true };
+        return { ...prevState, loading: true };
       case ActionType.SUCCESS:
         return {
           loading: false,
           data: action.payload,
+          error: null,
         };
       case ActionType.ERROR:
         return {
           loading: false,
+          data: null,
           error: action.payload,
         };
       default:
@@ -45,6 +47,8 @@ export const useAsync = <T>(
 ): [State<T>, () => void] => {
   const [state, dispatch] = useReducer(createReducer<T>(), {
     loading: false,
+    data: null,
+    error: null,
   });
 
   const fetchData = useCallback(() => {
