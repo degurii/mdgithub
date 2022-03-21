@@ -13,7 +13,7 @@ function Article({ article }: Props) {
   }
 
   return (
-    <article className="prose break-word w-screen">
+    <article className="prose break-word w-full prose-a:break-all ">
       <ReactMarkdown remarkPlugins={[reamarkGfm]}>{article.data}</ReactMarkdown>
     </article>
   );
