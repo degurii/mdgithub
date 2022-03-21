@@ -282,7 +282,7 @@ function Repository() {
     return <Navigate to={'/404-not-found'} replace={true} />;
   }
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex w-full flex-col h-screen">
       <Header openSidebar={openSidebar} branchInfo={branchInfo} />
       <div className="flex grow">
         <Sidebar

@@ -95,7 +95,7 @@ function MainContent({
     );
   }
   return (
-    <main className="flex flex-1 w-screen justify-center pt-6 lg:pt-14 pb-6 px-6 lg:px-8">
+    <main className="flex flex-1 w-full justify-center pt-6 lg:pt-14 pb-6 px-6 lg:px-8">
       {currentNode.type === 'tree' ? (
         <ArticleList articles={articles} />
       ) : (
